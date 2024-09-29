@@ -1,0 +1,78 @@
+version: '3.8'
+
+services:
+
+  #Creating the mysql database container
+  db:                                                                                     # the name of the service
+
+    image: mysql:8.0                                                                      # the image used to creat the service
+
+    environment:                                                                          # Setting the environment variables used in the container  
+      MYSQL_ROOT_PASSWORD: root_password                                                  
+      MYSQL_DATABASE: bookapi
+      MYSQL_USER: app
+      MYSQL_PASSWORD: password
+
+    volumes:                                                                              # saving persistant data from the mysql service
+      - db_data:/var/lib/mysql
+
+    ports:                                                                                # port mapping to expose the container in localhost:3306
+      - "3306:3306"
+
+  #Creating the api container
+  api:
+
+    build:                                                                                # specifying the directory and the Dockerfile for the buildng the container 
+      context: ./api
+      dockerfile: Dockerfile
+    
+    depends_on:                                                                           # making sure the database service is up before building this service, because the api service depends on the database service
+      - db
+
+    environment:                                                                          # setting the environment vatiables used in the container
+      DB_CONNECTION: mysql
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_DATABASE: bookapi
+      DB_USERNAME: app
+      DB_PASSWORD: password
+
+    ports:                                                                                # port mapping to expose the container in localhost:8000
+      - "8000:8000"
+
+  #Creating the client container
+  client:
+
+    build:                                                                                # specifying the directory and the Dockerfile for the buildng the container
+      context: ./client
+      dockerfile: Dockerfile
+
+    command: npm run serve                                                                # overwriting the CMD in the image to make sure the application is app and running
+
+    environment:                                                                          # setting the environment vatiables used in the container
+      VITE_API_URL: http://api:8000
+
+    ports:                                                                                # port mapping to expose the container in localhost:3000
+      - "3000:3000"
+
+    depends_on:                                                                           # making sure the api service is up before building this service, because the client service depends on the api service
+      - api
+
+  #Creating the nginx service
+  nginx:
+
+    image: nginx:alpine                                                                   # the image used to creat the service
+
+    volumes:                                                                              # Setting the nginx.conf file 
+      - ./nginx.conf:/etc/nginx/nginx.conf
+
+    depends_on:                                                                           # making sure that the api service and the client service are both up and running
+      - api
+      - client
+    
+    ports:                                                                                # ort mapping to expose the container in localhost:80
+      - "80:80"
+
+
+volumes:                                                                                  #intialize the volume to use in the presistant mysql service
+  db_data:
